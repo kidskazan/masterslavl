@@ -29,5 +29,14 @@
 		404 => "no entry schedules", // отсутствует запись расписания
 		500 => "This card is already activated", //данный билет уже активирован
 		501 => "This ticket does not exist", //не существует данного билета
+		502 => "Money already refunded for this ticket",
+		503 => "Bank refund error",
+		504 => "Visit date error",
+		505 => "Visit time error",
+		701 => "Error phone number format", //Неверный формат номера телефона
+		702 => "Empty phone number", //Пустой номер телефона
+		703 => "Emty sms code", //Пустой код из смс
+		704 => "Error sms code", //Неверный код из смс
+		705 => "Emty phone number in parents table" //Данный пользователь не зарегистрирован
 	);
 ?>

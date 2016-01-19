@@ -10,6 +10,7 @@ if (isset($_REQUEST["type_ticket"]))
 $config = [
     'id' => 'basic',
     'basePath' => dirname(__DIR__),
+    'defaultRoute' => 'online-pay',
     'bootstrap' => ['log'],
     'components' => [
         'request' => [
@@ -32,7 +33,14 @@ $config = [
             // send all mails to a file by default. You have to set
             // 'useFileTransport' to false and configure a transport
             // for the mailer to send real emails.
-            'useFileTransport' => false,
+            'transport' => [
+                'class' => 'Swift_SmtpTransport',
+                'host' => 'smtp.yandex.ru',
+                'username' => 'ticket@online.masterslavl.ru',
+                'password' => 'SteKciT2015',
+                'port' => '465',
+                'encryption' => 'ssl',
+            ],
         ],
         'log' => [
             'traceLevel' => YII_DEBUG ? 3 : 0, 
@@ -44,7 +52,7 @@ $config = [
             ],
         ],
         'db' => require(__DIR__ . '/db.php'),
-        'pdf' => [
+         'pdf' => [
             'class' => Pdf::classname(),
             'format' => Pdf::FORMAT_A4,
             'orientation' => Pdf::ORIENT_PORTRAIT,

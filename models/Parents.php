@@ -38,9 +38,9 @@ class Parents extends \yii\db\ActiveRecord
     {
         return [
             [['name', 'surname', 'father_name'], 'required'],
-            [['birthday', 'status', 'date'], 'integer'],
+            [['birthday', 'status', 'date', 'isActive'], 'integer'],
             [['name', 'surname', 'father_name', 'phone', 'phone2', 'email', 'username', 'password'], 'string', 'max' => 255],
-            [['qr'], 'string', 'max' => 32]
+            [['qr', 'hash'], 'string', 'max' => 32]
         ];
     }
 
@@ -63,6 +63,8 @@ class Parents extends \yii\db\ActiveRecord
             'email' => 'Email',
             'username' => 'Username',
             'password' => 'Password',
+			'hash' => 'Hash',
+			'isActive' => 'isActive',
         ];
     }
 }

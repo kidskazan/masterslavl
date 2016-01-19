@@ -37,7 +37,14 @@ AppAsset::register($this);
                 'items' => [
                     ['label' => 'Прайс', 'url' => ['/price-ticket/index']],
                     ['label' => 'Типы билетов', 'url' => ['/type-ticket/index']],
-                    ['label' => 'Типы часов', 'url' => ['/type-hours/index']]
+                    ['label' => 'Типы часов', 'url' => ['/type-hours/index']],
+                    ['label' => 'Прайс сертификатов', 'url' => ['/price-sertificate/index']],
+                    ['label' => 'Прайс абонементов', 'url' => ['/price-abonements/index']],
+                    ['label' => 'Программы', 'url' => ['/programms/index']],
+                    ['label' => 'Time Line', 'url' => ['/time-price-ticket/index']],
+                    ['label' => 'Типы дней(Программы)', 'url' => ['/type-day-programms/index']],
+                    ['label' => 'Типы квот', 'url' => ['/quota-type/index']],
+                    ['label' => 'Time Line квот', 'url' => ['/quota-time-table/index']]
                 ],
             ]);
             NavBar::end(); 

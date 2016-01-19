@@ -3,6 +3,8 @@
 namespace app\models;
 
 use Yii;
+use app\models\QuotaTimeTable;
+use app\models\QuotaType;
 
 /**
  * This is the model class for table "order".
@@ -33,7 +35,7 @@ class Order extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['id_city', 'date', 'type_ticket'], 'required'],
+            [['id_city', 'date'], 'required'],
             [['id_city', 'date', 'count_kids', 'count_adult', 'count_hours', 'type_ticket', 'summ'], 'integer'],
             [['klass'], 'string', 'max' => 255]
         ];
@@ -55,5 +57,47 @@ class Order extends \yii\db\ActiveRecord
             'klass' => 'Klass',
             'summ' => 'Summ',
         ];
+    }
+
+
+    public function getIsSufficiency($people = false)
+    {
+        $count_people_now = $this->count_kids + $this->count_adult;
+        
+        $QuotaTimeTable = QuotaTimeTable::find()->where(['<=', 'start_date', $this->date]);
+        $QuotaTimeTable = $QuotaTimeTable->andWhere(['>=', 'end_date', $this->date])->all();
+
+        if (isset($QuotaTimeTable[0]))
+        {
+            $time_table = $QuotaTimeTable[0];
+            $id_quota = $time_table->id_type;
+        } 
+        else
+            $id_quota = 1;
+		
+
+        $QuotaType = QuotaType::findOne($id_quota);
+
+        $date1 = strtotime(date("Y-m-d 00:00:00", strtotime($this->date)));
+        $date2 = strtotime(date("Y-m-d 23:59:59", strtotime($this->date)));
+
+        $count_people_order_resudie = $QuotaType->getResudie($this->type_ticket, $date1, $date2);
+		
+        if ($people == false)
+        {
+			echo "Count All=".$count_people_order_resudie;
+			echo "Count Now=".$count_people_now;
+            if ($count_people_now < $count_people_order_resudie)
+                return false;
+            else
+                return true;
+        }
+        else
+        {
+            if ($count_people_order_resudie > 0)
+                return true;
+            else
+                return false;
+        }
     }
 }

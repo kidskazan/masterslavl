@@ -96,6 +96,7 @@ a:hover {
 	text-transform: uppercase;
 }
 .formtable {
+	margin-left:5px;
 }
 .std-button {
 	background: #e96145;

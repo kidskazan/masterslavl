@@ -25,6 +25,12 @@ use xj\qrcode\widgets\Email;
 use xj\qrcode\widgets\Card;
 use kartik\mpdf\Pdf;
 use yii\validators\EmailValidator;
+use app\models\Stations;
+use app\models\Mentor;
+use app\models\SessStation;
+use app\models\Scenario;
+use app\models\SessKids;
+use app\models\CommentKids;
 
 require(__DIR__ . '/../vendor/api/error.php');
 
@@ -91,13 +97,95 @@ class ApiController extends \yii\web\Controller
 		else
 		{
 			$RelOrderPeople = RelOrderPeople::findOne(["qr" => $this->get["qr"]]);
-			if ($RelOrderPeople->status == 1)
+			$order = Order::findOne(["id" => $RelOrderPeople->id_order]);
+			$mDate = date("d-m-Y", $order->date);
+			$currentDate = date("d-m-Y", time());
+			
+			$mCountHour = $order->count_hours;
+			
+			$mCurrentCountHour = 0;
+			$mCurrentTimeHour = date("H", $order->date);
+			$mCurrentTimeMinutes = date("i", $order->date);
+			
+			if($mCurrentTimeHour > 13) {
+				if($mCurrentTimeMinutes >= 30) {
+					$mCurrentCountHour = 12;
+				} else {
+					$mCurrentCountHour = 11;
+				}
+			} else {
+				$mCurrentCountHour = 11;
+			}
+			
+			if ($currentDate != $mDate) {
+				$r = $this->setError(504);
+			}
+			//else if ($mCurrentCountHour != $mCountHour) {
+				//$r = $this->setError(505);
+			//}
+			else if ($RelOrderPeople->status == 1) {
 				$r = $this->setError(500);
+			}
+			else if ($RelOrderPeople->status == 2) {
+				$r = $this->setError(502);
+			}
 			else
 			{
 				$r["status"] = "ok";
 				$RelOrderPeople->status = 1;
 				$RelOrderPeople->save();
+			}
+		}
+
+		return json_encode($r);
+	}
+	
+	//Осуществление возврата денежных средств
+	public function actionRefundMoney() {
+		$customs = Customs::findOne(['token' => $this->get["token"]]);
+		
+		if (!$customs)
+			$r = $this->setError(205);
+		else
+		{
+			$RelOrderPeople = RelOrderPeople::findOne(["qr" => $this->get["qr"]]);
+			$order = Order::findOne(["id" => $RelOrderPeople->id_order]);
+			if ($RelOrderPeople->status == 1)
+				$r = $this->setError(500);
+			if ($RelOrderPeople->status == 2)
+				$r = $this->setError(502);
+			else
+			{
+				if ($ch = @curl_init()) 
+				{
+					$id_order = $order->id;
+					$amount = $RelOrderPeople->summ;
+					$bankOrderId = $order->bankOrderId;
+					
+					$mUrl = 'https://securepayments.sberbank.ru/payment/rest/refund.do?userName=masterslavl-api&password=shrjkisi&orderId='.$bankOrderId.'&amount='.$amount;
+
+					@curl_setopt($ch, CURLOPT_URL, $mUrl); 
+					@curl_setopt($ch, CURLOPT_HEADER, false); 
+					@curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+					@curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 30); 
+					@curl_setopt($ch, CURLOPT_USERAGENT, 'Masterslavl'); 
+					$data = @curl_exec($ch); 
+					$dt = json_decode($data);
+					
+					@curl_close($ch); 
+
+					$bankErrorCode = $dt->errorCode;
+					
+					if($bankErrorCode == 0) {
+						$r["status"] = "ok";
+						$RelOrderPeople->status = 2;
+						$RelOrderPeople->save();
+					} else {
+						$r = $this->setError(503);
+					}
+
+
+				} 
 			}
 		}
 
@@ -151,8 +239,12 @@ class ApiController extends \yii\web\Controller
 		else
 		{
 			$RelOrderPeople = RelOrderPeople::findOne(["qr" => $this->get["qr"]]);
-			if ($RelOrderPeople->status_money == 1)
+			if ($RelOrderPeople->status_money == 1) {
 				$r = $this->setError(500);
+			}
+			else if ($RelOrderPeople->status == 2) {
+				$r = $this->setError(502);
+			}
 			else
 			{
 				$r["status"] = "ok";
@@ -217,8 +309,12 @@ class ApiController extends \yii\web\Controller
 				$r["status_enter"] = $RelOrderPeople->status;
 				$r["status_money"] = $RelOrderPeople->status_money;
 				$r["count_hours"] = $order->count_hours;
-				if ($RelOrderPeople->type_people == 2)
+				if ($RelOrderPeople->type_people == 2) {
 					$r["money"] = 50;
+				} else {
+					$r["money"] = 0;
+				}
+					
 				$type_tiket = TypeTicket::findOne($RelOrderPeople->type_tiket);
 				$r["type_tiket"] = $type_tiket->name;
 				$d = $order->date;
@@ -231,8 +327,419 @@ class ApiController extends \yii\web\Controller
 
 		return json_encode($r);
 	} 
+	
+	
+	public function actionSearchKids() {
+		$searchText = $this->get["text"];
+		if(isset($searchText)) {
+			$kids = Kids::find()->where("LOWER(`name`) LIKE '".mb_strtolower($searchText)."%' OR LOWER(`surname`) LIKE '".mb_strtolower($searchText)."%' OR 
+					LOWER(`father_name`) LIKE '".mb_strtolower($searchText)."%' ")->asArray()->all();
+			
+			
+			echo json_encode($kids);
+		}
+	}
+	
+	//Привязка устройства к конкретной станции
+	//Входные параметры: $id - станции
+	//Ответ status: ok, hash: md5(time+id)
+	//Ошибки: 101, 102
+	function actionSetStation() {
+		
+		$station = Stations::findOne(['id' => $this->get["id"]]);
+		
+		if(count($station) == 0) {
+			$r = $this->setError(101);
+		} else {
+			if($station->hash) {
+				$r = $this->setError(102);
+			} else {
+				$r["status"] = "ok";
+				$mHash = md5($station->id.''.time());
+				$station->hash = $mHash;
+				$station->save();
+				$r["hash"] = $mHash;
+			}
+		}
+			
+		return json_encode($r);
+		
+	}
 
+	
+	//Получить список станций в конкретном городе
+	//Входные параметры: $id-city
+	//Ответ status:ok stations:[id, name]
+	//Ошибки: 103
+	function actionGetStations() {
+		
+		$id_city = $this->get["id_city"];
+		
+		$city = City::findOne(['id' => $id_city]);
+		
+		if(count($city) == 0) {
+			$r = $this->setError(150);
+		} else {
+			$stations = Stations::find()->where("id_city='".$id_city."' ")->asArray()->all();
+			$r["status"] = "ok";
+			$r["stations"] = $stations;
+		}
+		
+		return json_encode($r);
+		
+	}
+	
+	
+	//Авторизация наставника
+	//Входные параметры: $login, $password, $hash
+	//Ответ status: ok, token: md5($login+time())
+	//Ошибки: 201, 202, 101
+	function actionMentorAuth() {
+		
+		$mentor = Mentor::findOne(['login' => $this->get["login"], "password" => md5($this->get["password"])]);
+		
+		if (!$mentor)
+			$r = $this->setError(201);
+		elseif ($mentor->token != "")
+			$r = $this->setError(202);
+		else
+		{
+			$station = Stations::findOne(['hash' => $this->get["hash"]]);
+			if(count($station) == 0) {
+				$r = $this->setError(101);
+			} else {
+				$r["status"] = "ok";
+				$token = md5($mentor->login.time());
+				$mentor->token = $token;
+				$mentor->save();
+				
+				$sess_station = new SessStation;
+				
+				$sess_station->id_station = $station->id;
+				$sess_station->id_mentor = $mentor->id;
+				$sess_station->input = time();
+				$sess_station->token = $token;
+				$sess_station->save();
+				
+				$r["token"] = $token;
+			}
+		}
 
+		return json_encode($r);
+	}
+	
+	//Получить список сценариев
+	//Входные параметры: $hash, $token
+	//Ответ status: ok, scenario:[$id, $name]
+	//Ошибки: 205, 101
+	function actionGetScenarioList() {
+		
+		$station = Stations::findOne(['hash' => $this->get["hash"]]);
+		$mentor = Mentor::findOne(['token' => $this->get["token"]]);
+		
+		if(!$station) {
+			$r = $this->setError(101);
+		} else if(!$mentor) {
+			$r = $this->setError(205);
+		} else {
+			$scenario = Scenario::find()->where("id_station='".$station->id."' ")->asArray()->all();
+			
+			$r["status"] = "ok";
+			$r["scenario"] = $scenario;
+		}
+		
+		return json_encode($r);
+		
+	}
+	
+	
+	//Впустить ребенка на станцию
+	//Входные параметры: $token, $hash, $qr,
+	function actionEnterKidStation() {
+		
+		$mentor = Mentor::findOne(['token' => $this->get["token"]]);
+		$station = Stations::findOne(['hash' => $this->get["hash"]]);
+		
+		if(!$mentor) {
+			$r = $this->setError(205);
+		} elseif(!$station) {
+			$r = $this->setError(101);
+		} else {
+			$kids = Kids::findOne(['qr' => $this->get["qr"]]);
+			if(!$kids) {
+				$RelOrderPeople = RelOrderPeople::findOne(["qr" => $this->get["qr"]]);
+				if(!$RelOrderPeople) {
+					$r = $this->setError(301);
+				} else {
+					$type_people = $RelOrderPeople->type_people;
+					if($type_people == 2) {
+						$kids = Kids::findOne(['id' => $RelOrderPeople->id_people]);
+						if($kids) {
+							$kids->id_station = $station->id;
+							$kids->money = $kids->money - $station->price;
+							$kids->save();
+						} else {
+							$r = $this->setError(301);
+						}
+					} else if($type_people == 1) {
+						$r = $this->setError(301);
+					}
+				}
+			} else {
+				$kids->id_station = $station->id;
+				$kids->money = $kids->money - $station->price;
+				$kids->save();
+			}
+		}
+		
+		return json_encode($r);
+		
+	}
+	
+	//Выпустить ребнка со станции
+	//Входные параметры: $token, $hash, $qr
+	function actionExitKidStation() {
+		
+		$mentor = Mentor::findOne(['token' => $this->get["token"]]);
+		$station = Stations::findOne(['hash' => $this->get["hash"]]);
+		
+		if(!$mentor) {
+			$r = $this->setError(205);
+		} elseif(!$station) {
+			$r = $this->setError(101);
+		} else {
+			$kids = Kids::findOne(['qr' => $this->get["qr"]]);
+			if(!$kids) {
+				$RelOrderPeople = RelOrderPeople::findOne(["qr" => $this->get["qr"]]);
+				if(!$RelOrderPeople) {
+					$r = $this->setError(301);
+				} else {
+					$type_people = $RelOrderPeople->type_people;
+					if($type_people == 2) {
+						$kids = Kids::findOne(["id" => $RelOrderPeople->id_people]);
+						if($kids) {
+							$kids->money = $kids->money + $station->price;
+							$kids->id_station = 0;
+							$kids->save();
+						} else {
+							$r = $this->setError(301);
+						}
+					} elseif($type_people == 1) {
+						$r = $this->setError(301);
+					} else {
+						$r = $this->setError(301);
+					}
+				}
+			} else {
+				$kids->money = $kids->money + $station->price;
+				$kids->id_station = 0;
+				$kids->save();
+			}
+		}
+		
+		return json_encode($r);
+		
+	}
+	
+	//Закончить занятие
+	//Входные параметры: $token, $hash
+	function actionEndLesson() {
+		
+		$mentor = Mentor::findOne(['token' => $this->get["token"]]);
+		$station = Stations::findOne(['hash' => $this->get["hash"]]);
+		
+	}
+	
+	//Оставить комментарий
+	//Входные параметры: $token, $hash, $qr, $text
+	function actionSetComment() {
+		
+		$mentor = Mentor::findOne(['token' => $this->get["token"]]);
+		$station = Stations::findOne(['hash' => $this->get["hash"]]);
+		$kids = Kids::findOne(['qr' => $this->get["qr"]]);
+		
+		if(!$mentor) {
+			$r = $this->setError(205);
+		} elseif(!$station) {
+			$r = $this->setError(101);
+		} elseif(!$kids) {
+			$r = $this->setError(301);
+		} else {
+			$r["status"] = "ok";
+			$comment_kids = new CommentKids;
+			$comment_kids->id_kids = $kids->id;
+			$comment_kids->id_mentor = $mentor->id;
+			$comment_kids->id_station = $station->id;
+			$comment_kids->date = time();
+			$comment_kids->text = $this->get["text"];
+			$comment_kids->save();
+		}
+		//$comment_kids = new CommentKids;
+		return json_encode($r);
+	}
+	
+	function actionDeleteComment() {
+		
+	}
+	
+	function actionGetKidsParents() {
+		
+		$mentor = Mentor::findOne(['token' => $this->get["token"]]);
+		$kids = Kids::findOne(['qr' => $this->get["qr"]]);
+		
+		$parents = array();
+		$r = array();
+		
+		if(!$mentor) {
+			$r = $this->setError(205);
+		} else {
+			if(!$kids) {
+				$kidRelOrderPeople = RelOrderPeople::findOne(["qr" => $this->get["qr"]]);
+				if($kidRelOrderPeople) {
+					$type_people = $kidRelOrderPeople->type_people;
+					if($type_people == 2) {
+						$kids = Kids::findOne(["id" => $kidRelOrderPeople->id_people]);
+						$RelOrderPeople = RelOrderPeople::find()->where("id_people='".$kids->id."' AND type_people=2 ")->asArray()->all();
+						if($RelOrderPeople) {
+							foreach($RelOrderPeople as $val) {
+								$mIDOrder = $val["id_order"];
+								$mRelOrderPeople = RelOrderPeople::find()->where("id_order='".$mIDOrder."' AND type_people=1 ")->asArray()->all();
+								if($mRelOrderPeople) {
+									$i = 0;
+									foreach($mRelOrderPeople as $relVal) {
+										$mIDParent = $relVal["id_people"];
+										$mParent = Parents::findOne(['id' => $mIDParent]);
+										if($mParent) {
+											$parents[$i]["name"] = $mParent->name;
+											$parents[$i]["surname"] = $mParent->surname;
+											$parents[$i]["father_name"] = $mParent->father_name;
+											$parents[$i]["phone_number"] = $mParent->phone;
+											$parents[$i]["email"] = $mParent->email;
+										}
+										$i++;
+									}
+								}
+							}
+						}
+						if($parents) {
+							$r["status"] = "ok";
+							$r["parent_list"] = $parents;
+						} else {
+							$r = $this->setError(205);
+						}
+					} elseif($type_people == 1) {
+						$r = $this->setError(301);
+					} else {
+						$r = $this->setError(301);
+					}
+				} else {
+					$r = $this->setError(301);
+				}
+			} else {
+				$RelOrderPeople = RelOrderPeople::find()->where("id_people='".$kids->id."' AND type_people=2 ")->asArray()->all();
+				if($RelOrderPeople) {
+					foreach($RelOrderPeople as $val) {
+						$mIDOrder = $val["id_order"];
+						$mRelOrderPeople = RelOrderPeople::find()->where("id_order='".$mIDOrder."' AND type_people=1 ")->asArray()->all();
+						if($mRelOrderPeople) {
+							$i = 0;
+							foreach($mRelOrderPeople as $relVal) {
+								$mIDParent = $relVal["id_people"];
+								$mParent = Parents::findOne(['id' => $mIDParent]);
+								if($mParent) {
+									$parents[$i]["name"] = $mParent->name;
+									$parents[$i]["surname"] = $mParent->surname;
+									$parents[$i]["father_name"] = $mParent->father_name;
+									$parents[$i]["phone_number"] = $mParent->phone;
+									$parents[$i]["email"] = $mParent->email;
+								}
+								$i++;
+							}
+						}
+					}
+				}
+				if($parents) {
+					$r["status"] = "ok";
+					$r["parent_list"] = $parents;
+				} else {
+					$r = $this->setError(205);
+				}
+			}
+			
+		}
+		
+		return json_encode($r);
+		
+	}
+	
+	function actionGetKidInfo() {
+		
+	}
+	
+	
+	/********************************************************КАССОВЫЕ АПИ МЕТОДЫ**********************************************************************/
+	
+	//Get All Offers
+	function actionGetAllOffers() {
+		
+		$outputOffers = array();
+		
+		$order = Order::find()->limit(40)->offset(5000)->all();
+		
+		if($order) {
+			
+			foreach($order as $val) {
+				
+				$outputOfferElement = array();
+				
+				$date = $val["date"];
+				$id = $val["id"];
+				$status = $val["sendMail"];
+				$type_ticket = $val["type_ticket"];
+				$orderType = "Онлайн";
+				$summ = $val["summ"];
+				$refundSumm = 0;
+				$id_user = $val["id_user"];
+				
+				$surname = "";
+				$name = "";
+				$father_name = "";
+				
+				$fullName = "";
+				
+				$parents = Parents::findOne(["id" => $id_user]);
+				
+				if($parents) {
+					$name = $parents->name;
+					$surname = $parents->surname;
+					$father_name = $parents->father_name;
+					$fullName = $surname.' '.$name.' '.$father_name;
+				}
+				
+				
+				$outputOfferElement["id"] = $id;
+				$outputOfferElement["date"] = $date;
+				$outputOfferElement["status"] = $status;
+				$outputOfferElement["type_ticket"] = $type_ticket;
+				$outputOfferElement["orderType"] = $orderType;
+				$outputOfferElement["summ"] = $summ;
+				$outputOfferElement["refundSumm"] = $refundSumm;
+				$outputOfferElement["fullName"] = $fullName;
+				$outputOffers[] = $outputOfferElement;
+				
+			}
+			
+			$r["status"] = "ok";
+			$r["offers"] = $outputOffers;
+			
+		} else {
+			$r = $this->setError(101);
+		}
+		
+		return json_encode($r);
+		
+	}
+	
 
 	function setError($number)
 	{

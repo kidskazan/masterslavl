@@ -16,7 +16,7 @@ $this->params["type_ticket"] = "Мастерславль"
 						
 					</td>
 					<td style="text-align: center;">
-						EMAIL ИЛИ ТЕЛЕФОН&nbsp;<br>
+						АДРЕС ЭЛ. ПОЧТЫ<br>
 						<?= Html::activeTextInput($model, 'username', ['class'=>'form-item req std-input', 'tabindex' => '1']) ?>
 					</td>
 					<td width="50%" align="right" rowspan="3">
@@ -25,8 +25,8 @@ $this->params["type_ticket"] = "Мастерславль"
 							<div class="arr2"></div>
 							<div class="t">Внимание!</div>
 							<div class="b">
-								Для покупки индивидуального посещения Вам необходимо войти в свой аккаунт.
-								Если у вас нет аккаунта - создайте, нажав на <a href="index.php?r=online-pay/register">"Создать личный кабинет"</a>
+								Для покупки билета Вам необходимо войти в свой личный кабинет.
+								Если у Вас нет личного кабинета, <a href="index.php?r=online-pay/register">создайте его.</a>
 							</div>
 						</div>
 					</td>

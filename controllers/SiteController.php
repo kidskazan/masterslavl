@@ -12,16 +12,19 @@ use app\models\ContactForm;
 class SiteController extends Controller
 {
     public function behaviors()
-    {
+    {   
         return [
             'access' => [
                 'class' => AccessControl::className(),
-                'only' => ['logout'],
+                'only' => [],
                 'rules' => [
                     [
-                        'actions' => ['logout'],
+                        'actions' => [],
                         'allow' => true,
                         'roles' => ['@'],
+                        'matchCallback' => function ($rule, $action) {
+                            return (Yii::$app->user->identity->username == 'admin');
+                        }
                     ],
                 ],
             ],

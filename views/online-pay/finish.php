@@ -3,10 +3,10 @@
 use yii\helpers\Html;
 use yii\widgets\ActiveForm;
 
-$this->title = "";
+$this->title = "Заказ готов";
 $i = 0;?>
 
-<div style="height:10px;"></div>
+<div style="height:10px"></div>
 <div class="buttons">
 <a href="index.php?r=online-pay/save-all&order_id=<?=$order_id;?>" class="download">СКАЧАТЬ ВСЕ БИЛЕТЫ</a>
 <a href="index.php?r=online-pay/view-all&order_id=<?=$order_id;?>" class="print">НАПЕЧАТАТЬ ВСЕ БИЛЕТЫ</a>
@@ -26,7 +26,8 @@ $i = 0;?>
                         <?=$val["summ"];?> РУБ
                     </div> 
                     <div class="name">
-                        <?=$val["name"];?>
+                        <?=$val["name"];?><br>
+						<div class="surname"><?=$val["surname"];?></div>
                     </div>
                     <div class="datatext">
                         Дата посещения:
@@ -63,9 +64,10 @@ $i = 0;?>
                         <div class="money" >
                             <?=$val["summ"];?> РУБ
                         </div> 
-                        <div class="name">
-                             <?=$val["name"];?>
-                        </div>
+                    <div class="name">
+                        <?=$val["name"];?><br>
+						<div class="surname"><?=$val["surname"];?></div>
+                    </div>
                         <div class="datatext">
                             Дата посещения:
                         </div>
