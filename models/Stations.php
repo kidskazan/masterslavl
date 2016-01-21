@@ -3,26 +3,8 @@
 namespace app\models;
 
 use Yii;
+use app\models\SessStation;
 
-/**
- * This is the model class for table "customs".
- *
- * @property integer $id
- * @property string $name
- * @property string $surname
- * @property string $father_name
- * @property integer $birthday
- * @property string $qr
- * @property integer $date
- * @property integer $likes
- * @property integer $dislikes
- * @property string $description
- * @property string $login
- * @property string $password
- * @property string $token
- * @property string $reg_id
- * @property integer $id_city
- */
 class Stations extends \yii\db\ActiveRecord
 {
     /**
@@ -63,4 +45,17 @@ class Stations extends \yii\db\ActiveRecord
             'hash' => 'Hash',
         ];
     }
+
+    public function getCountKidsNow()
+    {
+        if ($this->sessStation)
+            return $this->sessStation->count_kids;
+    }
+
+    public function getSessStation()
+    {
+        return $this->hasOne(SessStation::className(), ['id_station' => 'id'])->where(['exit' => 0]);
+    }
+
+
 }

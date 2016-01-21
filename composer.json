@@ -15,7 +15,7 @@
     "minimum-stability": "stable",
     "require": {
         "xj/yii2-qrcode-widget": "*",
-        "kartik-v/yii2-mpdf": "dev-master",
+        "kartik-v/yii2-mpdf": "*",
         "robregonm/yii2-pdf": "dev-master",
         "mpdf/mpdf": "dev-master",
         "dompdf/dompdf": "0.6.*",

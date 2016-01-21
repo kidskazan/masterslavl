@@ -31,6 +31,7 @@ use app\models\SessStation;
 use app\models\Scenario;
 use app\models\SessKids;
 use app\models\CommentKids;
+use app\models\generalState;
 
 require(__DIR__ . '/../vendor/api/error.php');
 
@@ -750,6 +751,21 @@ class ApiController extends \yii\web\Controller
 		$r["error"] = $error[$number];
 		
 		return $r;
+	}
+
+	public function actionTest2()
+	{
+		//$parent = Parents::findOne(1);
+		$generalState = new generalState();
+		print_r($generalState->streetCountKids);
+		/*
+		$msg = "Test test test";
+		$name = "Тест".($parent->lastNews + 1);
+
+		$parent->sendNews($name, $msg);
+		*/
+
+		return 123;
 	}
  
 }
